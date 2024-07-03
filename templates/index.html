@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>上智大学質問問答システム</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #ffffff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+        .logo {
+            display: block;
+            margin: 0 auto 20px;
+            max-width: 150px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        #chatbox {
+            border: 1px solid #e0e0e0;
+            padding: 20px;
+            border-radius: 10px;
+            height: 400px;
+            overflow-y: scroll;
+            margin-bottom: 20px;
+            background: #f9f9f9;
+        }
+        .message {
+            padding: 10px 15px;
+            border-radius: 20px;
+            margin: 10px 0;
+            max-width: 80%;
+            line-height: 1.6;
+        }
+        .user-message {
+            background-color: #007bff;
+            color: #fff;
+            text-align: right;
+            margin-left: auto;
+        }
+        .bot-message {
+            background-color: #f0f0f0;
+            text-align: left;
+            margin-right: auto;
+        }
+        .sub-question {
+            color: #007bff;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+        input[type="text"] {
+            width: calc(100% - 100px);
+            padding: 10px;
+            margin-right: 10px;
+            border: 1px solid #ccc;
+            border-radius: 20px;
+            font-size: 16px;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 20px;
+            background-color: #007bff;
+            color: #fff;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .feedback-buttons button {
+            width: 48%;
+            margin: 1%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img src="/static/unnamed.png" alt="Logo" class="logo">
+        <h1>上智大学質問問答システム</h1>
+        <div id="chatbox"></div>
+        <input type="text" id="questionInput" placeholder="問題を入力してください">
+        <button onclick="submitQuestion()">確認</button>
+    </div>
+
+    <script>
+        let mainQuestions = [];
+        const chatbox = document.getElementById('chatbox');
+
+        window.onload = function() {
+            fetch('/main_questions')
+                .then(response => response.json())
+                .then(data => {
+                    mainQuestions = data;
+                    showWelcomeMessage();
+                });
+        };
+
+        function showWelcomeMessage() {
+            let welcomeMessage = "<div class='bot-message message'>こんにちは！お問合せ内容をお選びください。入力欄に、質問内容を自由記述することもできます。</div>";
+            mainQuestions.forEach(question => {
+                welcomeMessage += `<div class='bot-message message sub-question' onclick="submitSuggestedQuestion('${question}')">${question}</div>`;
+            });
+            chatbox.innerHTML += welcomeMessage;
+        }
+
+        function submitQuestion() {
+            const userInput = document.getElementById('questionInput').value;
+            displayUserMessage(userInput);
+            fetch('/qa', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ question: userInput }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                handleSuggestions(data.suggestions);
+            });
+        }
+
+        function submitSuggestedQuestion(question) {
+            displayUserMessage(question);
+            fetch('/qa_answer', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ question: question }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                handleResponse(data);
+            });
+        }
+
+        function displayUserMessage(message) {
+            const userMessage = `<div class='user-message message'>${message}</div>`;
+            chatbox.innerHTML += userMessage;
+            chatbox.scrollTop = chatbox.scrollHeight;
+        }
+
+        function displayBotMessage(message) {
+            const formattedMessage = message.replace(/\n/g, '<br>');
+            const botMessage = `<div class='bot-message message'>${formattedMessage}</div>`;
+            chatbox.innerHTML += botMessage;
+            chatbox.scrollTop = chatbox.scrollHeight;
+        }
+
+        function displaySubQuestion(message) {
+            const subQuestionMessage = `<div class='bot-message message sub-question' onclick="submitSuggestedQuestion('${message}')">${message}</div>`;
+            chatbox.innerHTML += subQuestionMessage;
+            chatbox.scrollTop = chatbox.scrollHeight;
+        }
+
+        function handleSuggestions(suggestions) {
+            if (suggestions.length > 0) {
+                suggestions.forEach(suggestion => {
+                    displaySuggestedQuestion(suggestion);
+                });
+            } else {
+                displayBotMessage('申し訳ありませんが、その質問にはお答えできません。');
+            }
+        }
+
+        function handleResponse(data) {
+            if (data.sub_questions.length > 0) {
+                data.sub_questions.forEach(subQuestion => {
+                    displaySubQuestion(subQuestion.question);
+                });
+            } else {
+                displayBotMessage(data.answer);
+                displayFeedbackButtons();
+            }
+        }
+
+        function displaySuggestedQuestion(suggestion) {
+            const suggestionMessage = `<div class='bot-message message sub-question' onclick="submitSuggestedQuestion('${suggestion}')">${suggestion}</div>`;
+            chatbox.innerHTML += suggestionMessage;
+            chatbox.scrollTop = chatbox.scrollHeight;
+        }
+
+        function displayFeedbackButtons() {
+            const feedbackMessage = `
+                <div class='bot-message message feedback-buttons' id="feedback">
+                    <p>問題は解決しましたか？</p>
+                    <button onclick="submitFeedback(true)">はい</button>
+                    <button onclick="submitFeedback(false)">いいえ</button>
+                </div>`;
+            chatbox.innerHTML += feedbackMessage;
+            chatbox.scrollTop = chatbox.scrollHeight;
+        }
+
+        function submitFeedback(feedback) {
+            const question = document.getElementById("questionInput").value;
+            fetch('/submit_feedback', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ question: question, feedback: feedback }),
+            })
+            .then(() => {
+                displayBotMessage("ありがとうございます！また何かございましたらお気軽にご質問ください！");
+                document.getElementById("feedback").style.display = 'none';
+                showWelcomeMessage();
+            });
+        }
+    </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
