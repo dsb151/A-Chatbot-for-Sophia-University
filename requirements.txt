@@ -1,4 +1,0 @@
-Flask
-gunicorn
-sentence-transformers
-flask_cors
