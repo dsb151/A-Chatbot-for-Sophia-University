@@ -14,13 +14,21 @@
 ## 🗂️ ディレクトリ構成
 
 ├── app.py # Flask アプリのエントリポイント
+
 ├── manage.py # 管理画面のルーティング
+
 ├── templates/ # HTMLテンプレート
+
 ├── static/ # CSS / JS / 画像など
+
 ├── admin/ # 管理用ページ
+
 ├── qa1.json # 質問応答データ
+
 ├── suggestions.json # ユーザーからの提案を記録
+
 ├── requirements.txt # 依存パッケージ一覧
+
 
 
 ## 🚀 起動方法
