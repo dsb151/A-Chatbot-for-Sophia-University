@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理システム</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+        }
+        .content {
+            flex: 2;
+        }
+        .sidebar {
+            flex: 1;
+            max-width: 300px;
+            padding: 10px;
+            border-left: 1px solid #ddd;
+            position: sticky;
+            top: 0;
+        }
+        ul {
+            list-style-type: none;
+        }
+        li {
+            margin-bottom: 10px;
+        }
+        input, textarea {
+            margin-right: 10px;
+            width: 600px;
+        }
+        button {
+            margin-right: 5px;
+        }
+        .sidebar ul {
+            padding-left: 10px;
+        }
+        .sidebar li {
+            cursor: pointer;
+        }
+        .highlight {
+            background-color: yellow;
+        }
+        #backToTopBtn {
+            display: none;
+            position: fixed;
+            bottom: 40px;
+            right: 40px;
+            z-index: 100;
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            font-size: 14px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        #backToTopBtn:hover {
+            background-color: #0056b3;
+        }
+        .suggestions {
+            background-color: white;
+            border: 1px solid #ccc;
+            max-height: 150px;
+            overflow-y: scroll;
+            position: absolute;
+        }
+        .suggestions div {
+            padding: 8px;
+            cursor: pointer;
+        }
+        .suggestions div:hover {
+            background-color: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="content">
+        <h1>データ管理システム</h1>
+
+        <h2>既存問題</h2>
+        {{ questions_html | safe }}
+    </div>
+
+    <div class="sidebar">
+        <h2>ナビゲーション</h2>
+        <ul id="navigation">
+        </ul>
+    </div>
+
+    <button id="backToTopBtn" onclick="scrollToTop()">TOPを戻る</button>
+
+    <!-- 弹出框用于输入分支问题和子问题 -->
+    <div id="popupForm" style="display: none; position: fixed; top: 20%; left: 30%; width: 400px; background: #fff; border: 1px solid #ccc; padding: 20px;">
+        <h3 id="popupTitle">問題を添加する</h3>
+        <form id="popupQuestionForm">
+            <label for="popupQuestion">問題：</label>
+            <input type="text" id="popupQuestion" name="popupQuestion" placeholder="問題を入力してください" style="width: 90%;">
+            <div id="popupAnswerContainer" style="display: none;">
+                <label for="popupAnswer">答案：</label>
+                <textarea id="popupAnswer" name="popupAnswer" rows="5" style="width: 90%;" placeholder="答案を入力してください"></textarea>
+            </div>
+            <button type="button" onclick="submitPopup()">確定</button>
+            <button type="button" onclick="closePopup()">キャンセル</button>
+        </form>
+    </div>
+
+    <script>
+        // 用于存储添加问题时的位置 (主问题、分支问题或子问题)
+        let addingTo = {
+            type: '',
+            path: '',
+        };
+
+        function openPopup(type, path) {
+            addingTo.type = type;
+            addingTo.path = path;
+            document.getElementById('popupForm').style.display = 'block';
+            document.getElementById('popupQuestion').value = '';  // 清空之前的输入框
+
+            if (type === 'sub') {
+                document.getElementById('popupAnswerContainer').style.display = 'block';  // 显示答案输入框
+            } else {
+                document.getElementById('popupAnswerContainer').style.display = 'none';  // 隐藏答案输入框
+            }
+        }
+
+        function closePopup() {
+            document.getElementById('popupForm').style.display = 'none';
+        }
+
+        function submitPopup() {
+            const question = document.getElementById('popupQuestion').value;
+            const answer = document.getElementById('popupAnswer').value;
+
+            if (question.trim() === '') {
+                alert('問題を入力してください');
+                return;
+            }
+
+            const data = {
+                type: addingTo.type,
+                path: addingTo.path,
+                question: question,
+                answer: answer
+            };
+
+            fetch('/add_sub_question', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            }).then(response => {
+                if (response.ok) {
+                    closePopup();
+                    location.reload();  // 刷新页面以显示新问题
+                } else {
+                    alert('添加失败');
+                }
+            });
+        }
+
+        function scrollToTop() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        window.onscroll = function() {
+            const btn = document.getElementById('backToTopBtn');
+            if (document.body.scrollTop > 100 || document.documentElement.scrollTop > 100) {
+                btn.style.display = "block";
+            } else {
+                btn.style.display = "none";
+            }
+        };
+
+        function scrollToQuestion(id) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                element.classList.add('highlight');
+                setTimeout(() => {
+                    element.classList.remove('highlight');
+                }, 2000);
+            }
+        }
+        function submitEdit(form, path) {
+    const formData = new FormData(form);
+    const data = {
+        path: path,
+        question: formData.get('question'),
+        answer: formData.get('answer')
+    };
+
+    fetch('/edit_question', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    }).then(response => {
+        if (response.ok) {
+            location.reload();  // 刷新页面以显示更新后的数据
+        } else {
+            alert('編集に失敗しました');
+        }
+    });
+}
+
+        function generateNavigationMenu(questions, parentId = '') {
+            const ul = document.createElement('ul');
+            questions.forEach((question, index) => {
+                const currentId = parentId ? `${parentId}-${index}` : `question-${index}`;
+                const li = document.createElement('li');
+                li.textContent = question.question;
+
+                if (!question.sub_questions || question.sub_questions.length === 0) {
+                    li.style.cursor = 'pointer';
+                    li.addEventListener('click', () => scrollToQuestion(currentId));
+                }
+
+                if (question.sub_questions && question.sub_questions.length > 0) {
+                    const toggle = document.createElement('span');
+                    toggle.textContent = ' [+] ';
+                    toggle.style.cursor = 'pointer';
+                    toggle.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const nextUl = li.querySelector('ul');
+                        if (nextUl.style.display === 'none') {
+                            nextUl.style.display = 'block';
+                            toggle.textContent = ' [-] ';
+                        } else {
+                            nextUl.style.display = 'none';
+                            toggle.textContent = ' [+] ';
+                        }
+                    });
+                    li.prepend(toggle);
+
+                    const subUl = generateNavigationMenu(question.sub_questions, currentId);
+                    subUl.style.display = 'none';
+                    li.appendChild(subUl);
+                }
+                ul.appendChild(li);
+            });
+            return ul;
+        }
+
+        const questionsData = {{ questions_data | safe }};
+        const navigationContainer = document.getElementById('navigation');
+        const navMenu = generateNavigationMenu(questionsData);
+        navigationContainer.appendChild(navMenu);
+    </script>
+
+</body>
+</html>
+
+
+
